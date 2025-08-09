@@ -58,55 +58,6 @@ All of the different variations: clean architecture, onion, ports-and-adapters, 
 />
 
 
-## Installation
-
-### 📦 Prerequisites
-Before running this project, ensure the following are installed on your system:
-
-- [.NET SDK 9.0]()
-    - Required to build and run the application
-    - Confirm installation with:
-        ```bash
-        dotnet --version
-        ```
-- [VSCode]() (optional: for development)
-    - Download the [C# Dev Kit extension](). 
-    - Alternatively you can use [Visual Studio (v17.10 or later)]()
-- [Docker]()
-    - Used to run the Database & Object-Storage
-    - Setting up local env
-
-
-#### 1. Clone the repo
-```bash
-# You can clone directly or fork the repo if you like
-git clone git@github.com:L1nque/Portfolio-Domain-Driven-Design.git
-```
-
-#### 2. Restore & Build
-```bash
-# make sure everything is working
-dotnet restore && dotnet build
-```
-
-#### 3. Run the containers
-```bash
-# this will run Psql & MinIO
-docker-compose up
-```
-
-#### 4. Run the WebApi
-```bash
-# optionally use 'watch'
-dotnet run
-```
-
-#### 5. Run tests
-```bash
-# You can also run individual tests if you like
-dotnet test
-```
-
 ## 🌿 Contributions
 All contributions are welcome
 

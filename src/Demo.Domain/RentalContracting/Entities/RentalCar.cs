@@ -18,7 +18,7 @@ public class RentalCar : Entity<RentalCarId>
     /// This is a contractual/legally binding property that is jotted down
     /// on the physical contract that is signed by the customer/stamped by the company.
     /// It's also used in conjunction with <see cref="FinalOdometer"/> to calculate excess
-    /// mileage charges based on the <see cref="MileagePolicy"/>
+    /// mileage charges based on a mileage policy
     /// </summary>
     public OdometerReading InitialOdometer { get; private set; }
 
@@ -41,18 +41,6 @@ public class RentalCar : Entity<RentalCarId>
     /// </summary>
     public FuelLevel? EndingFuelLevel { get; private set; }
 
-    /// <summary>
-    /// The stanard MileagePolicy associated with this car,
-    /// originating in the FleetManagement context.
-    /// </summary>
-    public MileagePolicy DefaultMileagePolicy { get; private set; }
-
-    /// <summary>
-    /// Gets the standard daily/weekly/monthly rates associated with this car, 
-    /// originating from the FleetManagement context.
-    /// </summary>
-    public RentalRate DefaultRates { get; private set; }
-
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RentalCar"/> class.
@@ -65,14 +53,11 @@ public class RentalCar : Entity<RentalCarId>
     /// <param name="defaultMileagePolicy">The default mileage policy from FleetManagement.</param>
     /// <param name="rentalRate">The default rental rates from FleetManagement.</param>
     public RentalCar(
-        RentalCarId id, OdometerReading initialOdometerReading,
-        FuelLevel initialFuelLevel, MileagePolicy defaultMileagePolicy, RentalRate rentalRate)
+        RentalCarId id, OdometerReading initialOdometerReading, FuelLevel initialFuelLevel)
         : base(id)
     {
         InitialFuelLevel = initialFuelLevel;
         InitialOdometer = initialOdometerReading;
-        DefaultMileagePolicy = defaultMileagePolicy;
-        DefaultRates = rentalRate;
     }
 
     /// <summary>

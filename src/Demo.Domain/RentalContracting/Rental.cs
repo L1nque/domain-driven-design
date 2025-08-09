@@ -16,13 +16,6 @@ namespace Demo.Domain.RentalContracting;
 public class Rental : AggregateRoot<RentalId>
 {
     /// <summary>
-    /// Private collection to hold the selected addons for this rental.
-    /// Selected addons are represented on the physical contract, and therefore,
-    /// we must "snapshot" them in the rental aggregate.
-    /// </summary>
-    private readonly List<SelectedAddon> _selectedAddons = new();
-
-    /// <summary>
     /// The Rental AggregateRoot is responsible in guarding
     /// the <see cref="RentalCar"/> and ensuring that it is in a consistent state.
     /// </summary>
@@ -54,23 +47,9 @@ public class Rental : AggregateRoot<RentalId>
     public RentalStatus Status { get; private set; }
 
     /// <summary>
-    /// While each <see cref="RentalCar"/> has its own default <seealso cref="MileagePolicy"/>,
-    /// this represents the "Final" MileagePolicy that was agreed upon the physical contract
-    /// that was signed by the customer and stamped by the company.
+    /// 
     /// </summary>
-    public MileagePolicy MileagePolicy { get; private set; }
-
-    /// <summary>
-    /// While each <see cref="RentalCar"/> has its own default <seealso cref="RentalRate"/>,
-    /// this represents the "Final" RentalRate that was agreed upon the physical contract
-    /// that was signed by the customer and stamped by the company.
-    /// </summary>
-    public RentalRate Rates { get; private set; }
-
-    /// <summary>
-    /// <see cref="_selectedAddons"/>
-    /// </summary>
-    public IReadOnlyCollection<SelectedAddon> SelecteAddons => _selectedAddons.AsReadOnly();
+    public int MaximumDriverCount { get; private set; }
 
 
     /// <summary>
@@ -81,13 +60,14 @@ public class Rental : AggregateRoot<RentalId>
     /// - Sets the initial status to 'Open'.
     /// 
     /// Ideally we would use a factory method to construct a complex aggregate,
-    /// as this would make it simpler to work with as the number of invariants grow.
+    /// as this would make it simpler to work with as the number of invariants grow, or
+    /// even if the construction of the Aggregate gets complex.
     /// </summary>
     /// <param name="id">The unique identifier for the rental.</param>
     /// <param name="car">The car being rented.</param>
     /// <param name="primaryDriver">The main driver for the rental; the customer.</param>
     /// <param name="period">The rental period.</param>
-    public Rental(RentalId id, RentalCar car, Driver primaryDriver, RentalPeriod period)
+    public Rental(RentalId id, RentalCar car, Driver primaryDriver, RentalPeriod period, int maximumDriverCount = 1)
         : base(id)
     {
         Car = car;
@@ -95,36 +75,8 @@ public class Rental : AggregateRoot<RentalId>
             .CheckAge()
             .CheckLicense();
         Period = period;
-        MileagePolicy = car.DefaultMileagePolicy;
-        Rates = car.DefaultRates;
         Status = RentalStatus.Open;
-    }
-
-
-    /// <summary>
-    /// Adds an addon to the rental.
-    /// This method enforces business rules:
-    /// - Addons can only be added when the rental is 'Open'.
-    /// - Prevents adding duplicate addons. Addons have a <see cref="SelectedAddon.Quantity"/> property that
-    ///   can be used instead.
-    /// </summary>
-    /// <param name="addon">The addon to add.</param>
-    /// <exception cref="InvalidRentalStateException">Thrown if the rental is not in the 'Open' state.</exception>
-    /// <exception cref="DuplicateAddonException">Thrown if an addon with the same ID is already selected.</exception>
-    public void AddSelectedAddon(SelectedAddon addon)
-    {
-        if (Status != RentalStatus.Open)
-        {
-            throw new InvalidRentalStateException("An addon cannot be added once a rental has started.");
-        }
-
-        if (SelecteAddons.FirstOrDefault(x => x.Id == addon.Id) != null)
-        {
-            throw new DuplicateAddonException(addon.Id);
-        }
-
-        _selectedAddons.Add(addon);
-        AddDomainEvent(new AddonSelectedEvent(Id, addon.Id, addon.Id));
+        MaximumDriverCount = maximumDriverCount;
     }
 
 
@@ -137,10 +89,8 @@ public class Rental : AggregateRoot<RentalId>
 
     public void AddSecondaryDriver(Driver secondDriver)
     {
-        if (SelecteAddons.FirstOrDefault(x => x.EnablesAdditionalDriver) == null)
-        {
-            throw new MissingAddonException("Adding a second driver requires an addon.");
-        }
+        if (MaximumDriverCount < 2)
+            throw new Exception("TODO: Exception");
 
         SecondaryDriver = secondDriver
             .CheckAge()
@@ -214,6 +164,13 @@ public class Rental : AggregateRoot<RentalId>
     /// - DomainObject (Current implementation): Explicit intent, Easy to extend, Semantic Signal
     /// - DomainService: Keeps rental pure, easier to test and isolate policies.
     /// - Passing in balance: Naive approach, leaks upstream semantics
+    /// 
+    /// Ideally, this becomes a two-step phase:
+    /// - InitiateClosure() which raises a domain event RentalClousreInitiatedEvent,
+    ///     which is then published as an integration event and the Balance/Billing context
+    ///     calculates if theres any balance left and raises BalanceClearedEvent
+    /// - BalanceClearedEvent is published as an integration event which we then listen to 
+    ///     in order to call rental.Close();
     /// </summary>
     /// <param name="outstandingBalance">The current outstanding balance for the rental.</param>
     /// <exception cref="OutstandingBalanceException">Thrown if the outstanding balance is greater than zero.</exception>
@@ -226,42 +183,6 @@ public class Rental : AggregateRoot<RentalId>
 
         Status = RentalStatus.Closed;
         AddDomainEvent(new RentalClosedEvent(Id));
-    }
-
-    /// <summary>
-    /// Allows overriding the default mileage policy for this specific rental.
-    /// This provides flexibility for special agreements or promotions.
-    /// It also enforces the invariant:
-    /// - The MileagePolicy can only be overridden if the rental hasn't started (contract hasn't been signed)
-    /// </summary>
-    /// <param name="mileagePolicy">The new mileage policy.</param>
-    /// <exception cref="InvalidRentalStateException">Thrown if the rental is not in the 'Open' state.</exception>
-    public void OverrideMileagePolicy(MileagePolicy mileagePolicy)
-    {
-        if (Status != RentalStatus.Open)
-        {
-            throw new InvalidRentalStateException("Cannot modify mileage policy after a rental that has started.");
-        }
-
-        MileagePolicy = mileagePolicy;
-    }
-
-    /// <summary>
-    /// Allows overriding the default rental rates for this specific rental.
-    /// This provides flexibility for special agreements or promotions.
-    /// It also enforces the invariant:
-    /// - The RentalRate can only be overridden if the rental hasn't started (contract hasn't been signed)
-    /// </summary>
-    /// <param name="rates">The new rental rates.</param>
-    /// <exception cref="InvalidRentalStateException">Thrown if the rental is not in the 'Open' state.</exception>
-    public void OverrideRates(RentalRate rates)
-    {
-        if (Status != RentalStatus.Open)
-        {
-            throw new InvalidRentalStateException("Cannot override rates once the rental has started");
-        }
-
-        Rates = rates;
     }
 
     /// <summary>
@@ -278,6 +199,6 @@ public class Rental : AggregateRoot<RentalId>
         }
 
         Status = RentalStatus.Cancelled;
-        AddDomainEvent(new RentalCancelledEvent(Id));
+        AddDomainEvent(new RentalCancelledEvent(Id, Car.Id));
     }
 }

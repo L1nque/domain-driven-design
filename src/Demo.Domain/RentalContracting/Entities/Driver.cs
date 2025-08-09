@@ -65,7 +65,7 @@ public class Driver : Entity<DriverId>
     /// </summary>
     /// <returns>The current <see cref="Driver"/> instance if validation passes.</returns>
     /// <exception cref="DriverAgeException">Thrown if the driver is below the minimum age.</exception>
-    public Driver CheckAge()
+    internal Driver CheckAge()
     {
         if (DateOfBirth.CalculateAge() < MinimumAge)
         {
@@ -82,7 +82,7 @@ public class Driver : Entity<DriverId>
     /// </summary>
     /// <returns>The current <see cref="Driver"/> instance if validation passes.</returns>
     /// <exception cref="DriverDocumentInvalidException">Thrown if the license is expired or too new.</exception>
-    public Driver CheckLicense()
+    internal Driver CheckLicense()
     {
         if (LicenseExpiryDate < DateTimeOffset.UtcNow)
         {
